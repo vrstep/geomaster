@@ -1,0 +1,23 @@
+{
+  "name": "GeoMaster MERN Stack",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "server",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "mongodb.mongodb-vscode",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "apollographql.vscode-apollo",
+        "humao.rest-client"
+      ]
+    }
+  },
+  
+  // Forward ports for Frontend, Backend, and DB
+  "forwardPorts": [3000, 4000, 27017],
+  
+  "remoteUser": "node"
+}

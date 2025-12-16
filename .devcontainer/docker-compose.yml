@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  server: 
+    build: 
+      context: . 
+      dockerfile: Dockerfile 
+    volumes: 
+      - ../..:/workspaces:cached 
+    command: sleep infinity
+    environment:
+      MONGO_URI: mongodb://db:27017/geomaster
+      NODE_ENV: development
+      PORT: 4000
+    depends_on:
+      - db
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    environment:
+      NODE_ENV: development
+
+  db:
+    image: mongo:latest
+    restart: unless-stopped
+    volumes:
+      - mongodb-data:/data/db
+
+volumes:
+  mongodb-data:
