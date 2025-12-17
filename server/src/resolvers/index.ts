@@ -114,7 +114,14 @@ export const resolvers = {
       // Accessing room.questions[index] will now work directly without populate
       
       const player = room.players.find(p => p.userId.toString() === context.user.userId);
-      if (!player || player.hasAnsweredCurrent) return room;
+      // if (!player || player.hasAnsweredCurrent) return room;
+      if (!player) {
+        throw new GraphQLError('You are not part of this room');
+      }
+
+      if (player.hasAnsweredCurrent) {
+        throw new GraphQLError('Already answered');
+      }
 
       const currentQ: any = room.questions[room.currentQuestionIndex];
       const isCorrect = currentQ.options[answerIndex] === currentQ.correctAnswer;
