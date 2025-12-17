@@ -18,7 +18,6 @@ export const resolvers = {
       return await User.find().sort({ 'stats.totalScore': -1 }).limit(20);
     },
     getRoom: async (_: any, { code }: any) => {
-      // REMOVED .populate('questions')
       return await Room.findOne({ code }).populate('hostId');
     }
   },
@@ -44,12 +43,11 @@ export const resolvers = {
       const quiz = await Quiz.findOne({ type: config.type });
       if (!quiz) throw new GraphQLError('No quiz found for this type');
 
-      // 1. Create room with COPIED questions
       const newRoom = new Room({
         code: generateCode(),
         hostId: context.user.userId,
         config,
-        questions: quiz.questions.slice(0, 10), // This now works because schema expects objects
+        questions: quiz.questions.slice(0, 10),
         players: [{
           userId: context.user.userId,
           username: context.user.username,
@@ -62,7 +60,6 @@ export const resolvers = {
       });
 
       await newRoom.save();
-      // REMOVED .populate('questions') - they are already inside newRoom!
       return await newRoom.populate('hostId');
     },
 
@@ -84,7 +81,7 @@ export const resolvers = {
           isReady: false,
           hasAnsweredCurrent: false,
           streak: 0,
-          avatar: "default_avatar.png" // Added required field
+          avatar: "default_avatar.png"
         });
         await room.save();
         pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
@@ -106,15 +103,10 @@ export const resolvers = {
     },
 
     submitAnswer: async (_: any, { code, answerIndex }: any, context: any) => {
-      // REMOVED .populate('questions')
       const room = await Room.findOne({ code }); 
       if (!room) throw new GraphQLError('Room not found');
 
-      // ... rest of logic stays exactly the same ...
-      // Accessing room.questions[index] will now work directly without populate
-      
       const player = room.players.find(p => p.userId.toString() === context.user.userId);
-      // if (!player || player.hasAnsweredCurrent) return room;
       if (!player) {
         throw new GraphQLError('You are not part of this room');
       }
@@ -122,11 +114,14 @@ export const resolvers = {
       if (player.hasAnsweredCurrent) {
         throw new GraphQLError('Already answered');
       }
+      
+      if (room.status !== 'PLAYING') {
+        throw new GraphQLError('Game is not active');
+      }
 
       const currentQ: any = room.questions[room.currentQuestionIndex];
       const isCorrect = currentQ.options[answerIndex] === currentQ.correctAnswer;
       
-      // ... scoring logic ...
       if (isCorrect) {
           const startTime = room.roundStartTime ? new Date(room.roundStartTime).getTime() : Date.now();
           const timeTaken = (Date.now() - startTime) / 1000;
@@ -138,7 +133,6 @@ export const resolvers = {
       }
       player.hasAnsweredCurrent = true;
 
-      // ... round transition logic ...
       const allAnswered = room.players.every(p => p.hasAnsweredCurrent);
       if (allAnswered) {
         if (room.currentQuestionIndex < room.questions.length - 1) {
