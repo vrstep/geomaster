@@ -103,6 +103,7 @@ export const resolvers = {
     },
 
     submitAnswer: async (_: any, { code, answerIndex }: any, context: any) => {
+      if (!context.user) throw new GraphQLError('Unauthorized');
       const room = await Room.findOne({ code }); 
       if (!room) throw new GraphQLError('Room not found');
 
