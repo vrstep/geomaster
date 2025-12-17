@@ -101,16 +101,20 @@ export const resolvers = {
       pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
       return room;
     },
-
+    
     submitAnswer: async (_: any, { code, answerIndex }: any, context: any) => {
       if (!context.user) throw new GraphQLError('Unauthorized');
       const room = await Room.findOne({ code }); 
       if (!room) throw new GraphQLError('Room not found');
 
-      const player = room.players.find(p => p.userId.toString() === context.user.userId);
-      if (!player) {
+      // Find the player INDEX instead of the object reference
+      const playerIndex = room.players.findIndex(p => p.userId.toString() === context.user.userId);
+      if (playerIndex === -1) {
         throw new GraphQLError('You are not part of this room');
       }
+
+      // Access player using the index for proper Mongoose reactivity
+      const player = room.players[playerIndex];
 
       if (player.hasAnsweredCurrent) {
         throw new GraphQLError('Already answered');
@@ -124,28 +128,37 @@ export const resolvers = {
       const isCorrect = currentQ.options[answerIndex] === currentQ.correctAnswer;
       
       if (isCorrect) {
-          const startTime = room.roundStartTime ? new Date(room.roundStartTime).getTime() : Date.now();
-          const timeTaken = (Date.now() - startTime) / 1000;
-          const speedBonus = Math.max(0, Math.floor((15 - timeTaken) * 10));
-          player.score += (100 + speedBonus);
-          player.streak += 1;
+        const startTime = room.roundStartTime ? new Date(room.roundStartTime).getTime() : Date.now();
+        const timeTaken = (Date.now() - startTime) / 1000;
+        const speedBonus = Math.max(0, Math.floor((15 - timeTaken) * 10));
+        
+        // Update using array index to ensure Mongoose tracks changes
+        room.players[playerIndex].score += (100 + speedBonus);
+        room.players[playerIndex].streak += 1;
       } else {
-          player.streak = 0;
+        room.players[playerIndex].streak = 0;
       }
-      player.hasAnsweredCurrent = true;
+      
+      room.players[playerIndex].hasAnsweredCurrent = true;
 
       const allAnswered = room.players.every(p => p.hasAnsweredCurrent);
       if (allAnswered) {
         if (room.currentQuestionIndex < room.questions.length - 1) {
           room.currentQuestionIndex += 1;
           room.roundStartTime = new Date();
-          room.players.forEach(p => p.hasAnsweredCurrent = false);
+          // Reset hasAnsweredCurrent for all players
+          room.players.forEach((p, idx) => {
+            room.players[idx].hasAnsweredCurrent = false;
+          });
         } else {
           room.status = 'FINISHED';
         }
       }
 
+      // Mark the players array as modified to ensure Mongoose saves it
+      room.markModified('players');
       await room.save();
+      
       pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
       return room;
     }
