@@ -4,8 +4,19 @@ import { persist } from 'zustand/middleware';
 interface User {
   id: string;
   username: string;
-  avatar: string;
-  stats?: any; 
+  avatar?: string; // Made optional
+  email?: string;
+  stats?: {
+    totalScore: number;
+    gamesPlayed: number;
+    gamesWon: number;
+    bestStreak: number;
+    categoryStats?: {
+      outline: { played: number; won: number };
+      capital: { played: number; won: number };
+      flag: { played: number; won: number };
+    };
+  };
 }
 
 interface AuthState {
