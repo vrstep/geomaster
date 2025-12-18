@@ -55,7 +55,11 @@ export const CREATE_ROOM_MUTATION = gql`
       code
       status
       host {
+        id
         username
+      }
+      config {
+        isHostPlaying
       }
     }
   }
@@ -95,6 +99,11 @@ export const JOIN_ROOM_MUTATION = gql`
   mutation JoinRoom($code: String!) {
     joinRoom(code: $code) {
       id
+      code
+      host {
+        id
+        username
+      }
       players {
         userId
         username
@@ -119,9 +128,14 @@ export const ROOM_UPDATED_SUBSCRIPTION = gql`
   subscription RoomUpdated($code: String!) {
     roomUpdated(code: $code) {
       id
+      code
       status
       currentQuestionIndex
       roundStartTime
+      host {
+        id
+        username
+      }
       players {
         userId
         username
@@ -130,6 +144,18 @@ export const ROOM_UPDATED_SUBSCRIPTION = gql`
         isReady
         hasAnsweredCurrent
         streak
+      }
+    }
+  }
+`;
+
+export const TOGGLE_READY_MUTATION = gql`
+  mutation ToggleReady($code: String!) {
+    toggleReady(code: $code) {
+      id
+      players {
+        userId
+        isReady
       }
     }
   }
