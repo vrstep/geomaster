@@ -57,17 +57,18 @@ export const typeDefs = `#graphql
     difficulty: String!
     region: String
     isRanked: Boolean!
+    isHostPlaying: Boolean! # ✅ Added this
   }
 
   type Room {
     id: ID!
     code: String!
-    host: User # The host user object (resolved)
+    host: User
     config: RoomConfig!
-    status: String! # WAITING, PLAYING, FINISHED
+    status: String!
     players: [PlayerState!]!
     currentQuestionIndex: Int!
-    questions: [Question!]! # The actual questions for this game
+    questions: [Question!]!
     roundStartTime: String
   }
 
@@ -91,6 +92,7 @@ export const typeDefs = `#graphql
     # Room Management
     createRoom(config: RoomConfigInput!): Room!
     joinRoom(code: String!): Room!
+    toggleReady(code: String!): Room!
     leaveRoom(code: String!): Boolean
     
     # Game Flow
@@ -99,11 +101,12 @@ export const typeDefs = `#graphql
   }
 
   input RoomConfigInput {
-    mode: String!      # SINGLE, MULTI
-    type: String!      # CAPITALS, FLAGS, BORDERS
-    difficulty: String # EASY, MEDIUM, HARD
+    mode: String!      
+    type: String!      
+    difficulty: String 
     region: String
     isRanked: Boolean
+    isHostPlaying: Boolean
   }
 
   # --- SUBSCRIPTIONS ---

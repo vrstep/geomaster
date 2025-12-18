@@ -18,7 +18,7 @@ export const resolvers = {
       return await User.find().sort({ 'stats.totalScore': -1 }).limit(20);
     },
     getRoom: async (_: any, { code }: any) => {
-      return await Room.findOne({ code }).populate('hostId');
+      return await Room.findOne({ code });
     }
   },
 
@@ -43,24 +43,25 @@ export const resolvers = {
       const quiz = await Quiz.findOne({ type: config.type });
       if (!quiz) throw new GraphQLError('No quiz found for this type');
 
+      const initialPlayers = config.isHostPlaying ? [{
+        userId: context.user.userId,
+        username: context.user.username,
+        score: 0,
+        isReady: false,
+        streak: 0,
+        hasAnsweredCurrent: false,
+        avatar: context.user.avatar || 'default_avatar.png'
+      }] : [];
+
       const newRoom = new Room({
         code: generateCode(),
         hostId: context.user.userId,
         config,
         questions: quiz.questions.slice(0, 10),
-        players: [{
-          userId: context.user.userId,
-          username: context.user.username,
-          score: 0,
-          isReady: true,
-          streak: 0,
-          hasAnsweredCurrent: false,
-          avatar: context.user.avatar || 'default_avatar.png'
-        }]
+        players: initialPlayers
       });
-
       await newRoom.save();
-      return await newRoom.populate('hostId');
+      return newRoom;
     },
 
     joinRoom: async (_: any, { code }: any, context: any) => {
@@ -86,6 +87,25 @@ export const resolvers = {
         await room.save();
         pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
       }
+      return room;
+    },
+
+    toggleReady: async (_: any, { code }: any, context: any) => {
+      if (!context.user) throw new GraphQLError('Unauthorized');
+
+      const room = await Room.findOne({ code });
+      if (!room) throw new GraphQLError('Room not found');
+
+      const player = room.players.find(p => p.userId.toString() === context.user.userId);
+      if (!player) throw new GraphQLError('You are not in this room');
+
+      player.isReady = !player.isReady; // Toggle status
+      
+      // Mongoose doesn't always detect deep array changes automatically
+      room.markModified('players'); 
+      await room.save();
+      
+      pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
       return room;
     },
 
