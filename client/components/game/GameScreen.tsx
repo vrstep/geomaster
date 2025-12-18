@@ -250,7 +250,10 @@ function GameOverScreen({ players }: { players: Player[] }) {
 
       <div className="flex items-end gap-4 mb-12">
         {second && (
-          <div className="flex flex-col items-center opacity-0 animate-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-forwards">
+          <div 
+            className="flex flex-col items-center animate-in slide-in-from-bottom-8 duration-700"
+            style={{ animationDelay: '300ms', animationFillMode: 'both' }}
+          >
             <Avatar className="w-16 h-16 border-4 border-slate-400 mb-2">
               <AvatarImage src={second.avatar} />
               <AvatarFallback className="text-slate-900 font-bold">{second.username[0]}</AvatarFallback>
@@ -262,7 +265,10 @@ function GameOverScreen({ players }: { players: Player[] }) {
         )}
 
         {winner && (
-          <div className="flex flex-col items-center z-10 opacity-0 animate-in slide-in-from-bottom-12 duration-700 delay-100 fill-mode-forwards">
+          <div 
+            className="flex flex-col items-center z-10 animate-in slide-in-from-bottom-12 duration-700"
+            style={{ animationDelay: '100ms', animationFillMode: 'both' }}
+          >
              <div className="relative">
                <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 w-8 h-8 text-yellow-400 fill-yellow-400 animate-pulse" />
                <Avatar className="w-24 h-24 border-4 border-yellow-400 mb-4">
@@ -277,7 +283,10 @@ function GameOverScreen({ players }: { players: Player[] }) {
         )}
 
         {third && (
-          <div className="flex flex-col items-center opacity-0 animate-in slide-in-from-bottom-8 duration-700 delay-500 fill-mode-forwards">
+          <div 
+            className="flex flex-col items-center animate-in slide-in-from-bottom-8 duration-700"
+            style={{ animationDelay: '500ms', animationFillMode: 'both' }}
+          >
             <Avatar className="w-16 h-16 border-4 border-orange-700 mb-2">
               <AvatarImage src={third.avatar} />
               <AvatarFallback className="text-slate-900 font-bold">{third.username[0]}</AvatarFallback>
