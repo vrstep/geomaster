@@ -4,14 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trophy, Globe, Users, Play, LogOut, Loader2 } from "lucide-react";
 import { useQuery } from "@apollo/client/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/store/useAuthStore";
 import { ME_QUERY } from "@/lib/graphql";
 
-// Define types for the query response
 interface MeData {
   me: {
     id: string;
@@ -29,30 +32,30 @@ interface MeData {
 export default function Dashboard() {
   const router = useRouter();
   const { user, logout, login } = useAuthStore();
-  
-  // Fetch fresh stats on load
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+
+  const handleJoinSubmit = () => {
+    if (joinCode.length >= 6) {
+      router.push(`/game/${joinCode}`);
+    }
+  };
+
   const { data, loading, error } = useQuery<MeData>(ME_QUERY, {
-    skip: !user, // Don't query if not logged in
+    skip: !user,
     fetchPolicy: "network-only"
   });
 
-  // Sync latest data to store
   useEffect(() => {
     if (data?.me) {
-      // Re-save user to store to update stats
       login(localStorage.getItem("token") || "", data.me);
     }
   }, [data, login]);
 
   const handleCreateGame = () => {
-    // We will implement this route next
     router.push("/game/create");
   };
 
-  const handleJoinGame = () => {
-    // We will implement this dialog later
-    router.push("/game/join");
-  };
 
   if (!user) {
     return (
@@ -78,18 +81,18 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 p-6">
       <header className="flex justify-between items-center mb-8 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
-                {user.username.charAt(0).toUpperCase()}
-            </div>
-            <div>
-                <h2 className="text-xl font-bold">Hello, {user.username}!</h2>
-                <p className="text-sm text-muted-foreground">Ready to explore?</p>
-            </div>
+          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
+            {user.username.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">Hello, {user.username}!</h2>
+            <p className="text-sm text-muted-foreground">Ready to explore?</p>
+          </div>
         </div>
         {/* CHANGED: Switched to 'outline' variant and added border color */}
-        <Button 
-          variant="outline" 
-          onClick={logout} 
+        <Button
+          variant="outline"
+          onClick={logout}
           className="border-red-200 text-red-500 hover:text-red-600 hover:bg-red-50"
         >
           <LogOut className="mr-2 h-4 w-4" /> Logout
@@ -112,10 +115,60 @@ export default function Dashboard() {
                 <Button onClick={handleCreateGame} variant="secondary" className="flex-1 font-bold">
                   Host Game
                 </Button>
-                {/* CHANGED: Switched w-full to flex-1 */}
-                <Button onClick={handleJoinGame} variant="outline" className="flex-1 bg-transparent border-white text-white hover:bg-white/20">
+                <Button
+                  onClick={() => setShowJoinDialog(true)}
+                  variant="outline"
+                  className="flex-1 bg-transparent border-white text-white hover:bg-white/20"
+                >
                   Join Room
                 </Button>
+
+                {/* JOIN GAME DIALOG */}
+                <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Join Game</DialogTitle>
+                      <DialogDescription>
+                        Enter the 6-digit room code shared by the host.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex items-center space-x-2 py-4">
+                      <div className="grid flex-1 gap-2">
+                        <Label htmlFor="roomCode" className="sr-only">
+                          Room Code
+                        </Label>
+                        <Input
+                          id="roomCode"
+                          placeholder="123456"
+                          className="text-center text-2xl tracking-widest uppercase font-mono"
+                          maxLength={6}
+                          value={joinCode}
+                          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                        />
+                      </div>
+                    </div>
+
+                    <DialogFooter className="sm:justify-between">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setShowJoinDialog(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleJoinSubmit}
+                        disabled={joinCode.length < 6}
+                      >
+                        Enter Room
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+
               </div>
             </CardContent>
           </Card>
@@ -135,37 +188,37 @@ export default function Dashboard() {
 
         {/* Right Column: Stats */}
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Trophy className="h-5 w-5 text-yellow-500" /> Your Stats
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {loading ? (
-                        <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>
-                    ) : (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-slate-100 p-4 rounded-lg text-center">
-                                <p className="text-2xl font-bold text-slate-800">{data?.me?.stats?.totalScore || 0}</p>
-                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Score</p>
-                            </div>
-                            <div className="bg-slate-100 p-4 rounded-lg text-center">
-                                <p className="text-2xl font-bold text-slate-800">{data?.me?.stats?.gamesWon || 0}</p>
-                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Games Won</p>
-                            </div>
-                             <div className="bg-slate-100 p-4 rounded-lg text-center">
-                                <p className="text-2xl font-bold text-slate-800">{data?.me?.stats?.bestStreak || 0}</p>
-                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Best Streak</p>
-                            </div>
-                             <div className="bg-slate-100 p-4 rounded-lg text-center">
-                                <p className="text-2xl font-bold text-slate-800">{data?.me?.stats?.gamesPlayed || 0}</p>
-                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Played</p>
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-yellow-500" /> Your Stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-100 p-4 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-slate-800">{data?.me?.stats?.totalScore || 0}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Score</p>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-slate-800">{data?.me?.stats?.gamesWon || 0}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Games Won</p>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-slate-800">{data?.me?.stats?.bestStreak || 0}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Best Streak</p>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-slate-800">{data?.me?.stats?.gamesPlayed || 0}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Played</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>

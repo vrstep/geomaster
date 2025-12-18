@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useSubscription } from "@apollo/client/react";
 import { useMutation } from "@apollo/client/react";
 import { Loader2, LogIn } from "lucide-react";
@@ -38,7 +38,7 @@ interface Room {
   host: {
     id: string;
     username: string;
-  };
+  } | null;
   players: Player[];
   questions: Question[];
 }
@@ -54,6 +54,7 @@ interface RoomUpdatedData {
 interface JoinRoomData {
   joinRoom: {
     id: string;
+    code: string;
     players: Player[];
   };
 }
@@ -66,38 +67,63 @@ const GameScreen = ({ room }: { room: Room }) => (
 );
 
 export default function GameRoomPage() {
-  const { code } = useParams();
+  const params = useParams();
+  const router = useRouter();
   const { user } = useAuthStore();
+  
+  // Safely extract code from params
+  const code = typeof params.code === 'string' ? params.code : Array.isArray(params.code) ? params.code[0] : '';
 
   // 1. Initial Query
   const { data, loading, error, refetch } = useQuery<GetRoomData>(GET_ROOM_QUERY, {
     variables: { code },
     fetchPolicy: "network-only",
+    skip: !code, // Skip if no code
   });
 
   // 2. Realtime Subscription
   const { data: subData } = useSubscription<RoomUpdatedData>(ROOM_UPDATED_SUBSCRIPTION, {
     variables: { code },
+    skip: !code, // Skip if no code
   });
 
   // 3. Join Mutation
   const [joinRoom, { loading: joining }] = useMutation<JoinRoomData>(JOIN_ROOM_MUTATION, {
-  onCompleted: () => {
-    toast("Joined!", { description: "You have entered the lobby" });
-    refetch(); // optional, subscription will also update
-  },
-  onError: (err) => toast.error("Join Failed", { description: err.message }),
-});
-
+    onCompleted: (joinData) => {
+      toast("Joined!", { description: "You have entered the lobby" });
+      // Refetch to get the latest room data
+      refetch();
+    },
+    onError: (err) => toast.error("Join Failed", { description: err.message }),
+  });
 
   // Get the current room (prefer subscription data over initial query)
   const room = subData?.roomUpdated || data?.getRoom;
 
-  // Check if user is already in the player list using useMemo to avoid re-renders
-  const hasJoined = useMemo(() => {
+  // Check if user is the host
+  const isHost = useMemo(() => {
+    if (!room || !user) return false;
+    return room.host?.id === user.id;
+  }, [room, user]);
+
+  // Check if user is already in the player list
+  const isUserInRoom = useMemo(() => {
     if (!room || !user) return false;
     return room.players.some((p) => p.userId === user.id);
   }, [room, user]);
+
+  // Determine if we should show the join screen
+  // Show join screen only if: user is NOT the host AND user is NOT in the players list
+  const shouldShowJoinScreen = !isHost && !isUserInRoom;
+
+  if (!code) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <h2 className="text-2xl font-bold text-red-500">Invalid Room Code</h2>
+        <Button variant="outline" onClick={() => router.push("/")}>Go Home</Button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -112,13 +138,13 @@ export default function GameRoomPage() {
       <div className="h-screen flex flex-col items-center justify-center gap-4">
         <h2 className="text-2xl font-bold text-red-500">Room Not Found</h2>
         <p className="text-muted-foreground">{error?.message || "The room does not exist"}</p>
-        <Button variant="outline" onClick={() => window.location.href = "/"}>Go Home</Button>
+        <Button variant="outline" onClick={() => router.push("/")}>Go Home</Button>
       </div>
     );
   }
 
-  // If not joined yet, show Join Screen
-  if (!hasJoined) {
+  // If user should see join screen (not host, not in players)
+  if (shouldShowJoinScreen) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-6 bg-slate-50">
         <div className="text-center space-y-2">

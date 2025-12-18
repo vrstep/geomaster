@@ -6,7 +6,7 @@ import { useMutation } from "@apollo/client/react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Globe, Flag, Map, Trophy, Users, User } from "lucide-react";
+import { Loader2, Globe, Flag, Map, Trophy, Users, User, Monitor, Gamepad2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -25,6 +25,7 @@ const formSchema = z.object({
   type: z.enum(["CAPITALS", "FLAGS", "BORDERS"]),
   difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
   isRanked: z.boolean(),
+  isHostPlaying: z.boolean(),
   region: z.string().optional(),
 });
 
@@ -65,6 +66,7 @@ export default function CreateGamePage() {
       type: "CAPITALS",
       difficulty: "MEDIUM",
       isRanked: false,
+      isHostPlaying: true,
       region: "ALL",
     },
   });
@@ -77,6 +79,7 @@ export default function CreateGamePage() {
           type: values.type,
           difficulty: values.difficulty,
           isRanked: values.isRanked,
+          isHostPlaying: values.isHostPlaying,
           region: values.region === "ALL" ? null : values.region,
         },
       },
@@ -87,38 +90,45 @@ export default function CreateGamePage() {
     <div className="min-h-screen bg-slate-50 p-6 flex items-center justify-center">
       <Card className="w-full max-w-2xl shadow-xl border-t-4 border-t-primary">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center">Setup Game</CardTitle>
-          <CardDescription className="text-center">Customize your geography challenge</CardDescription>
+          <CardTitle className="text-3xl font-bold text-center">Host Multiplayer Game</CardTitle>
+          <CardDescription className="text-center">Configure your lobby settings</CardDescription>
         </CardHeader>
         
         <CardContent>
-          <form id="create-game-form" onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
             <FieldGroup>
-              
-              {/* 1. Game Mode (Tabs) */}
+              {/* 1. Host Role (Playing vs Projector) */}
               <Controller
                 control={form.control}
-                name="mode"
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel>Game Mode</FieldLabel>
-                    <Tabs 
-                      onValueChange={field.onChange} 
-                      value={field.value} 
-                      className="w-full"
+                name="isHostPlaying"
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel className="mb-3 block text-lg font-medium">Your Role</FieldLabel>
+                    <RadioGroup
+                      onValueChange={(val) => field.onChange(val === "true")}
+                      value={field.value ? "true" : "false"}
+                      className="grid grid-cols-2 gap-4"
                     >
-                      <TabsList className="grid w-full grid-cols-2 h-14">
-                        <TabsTrigger value="MULTI" className="text-lg gap-2">
-                          <Users className="w-5 h-5" /> Multiplayer
-                        </TabsTrigger>
-                        <TabsTrigger value="SINGLE" className="text-lg gap-2">
-                          <User className="w-5 h-5" /> Single Player
-                        </TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
+                      <label className={cn(
+                        "flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        field.value === true ? "border-primary bg-primary/5" : "border-muted bg-white hover:bg-slate-50"
+                      )}>
+                        <RadioGroupItem value="true" className="sr-only" />
+                        <Gamepad2 className="w-8 h-8 mb-2 text-indigo-500" />
+                        <span className="font-bold">Player & Host</span>
+                        <span className="text-xs text-muted-foreground text-center mt-1">Participate in the quiz</span>
+                      </label>
+
+                      <label className={cn(
+                        "flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        field.value === false ? "border-primary bg-primary/5" : "border-muted bg-white hover:bg-slate-50"
+                      )}>
+                        <RadioGroupItem value="false" className="sr-only" />
+                        <Monitor className="w-8 h-8 mb-2 text-slate-500" />
+                        <span className="font-bold">Projector Mode</span>
+                        <span className="text-xs text-muted-foreground text-center mt-1">Host only (Big Screen)</span>
+                      </label>
+                    </RadioGroup>
                   </Field>
                 )}
               />
