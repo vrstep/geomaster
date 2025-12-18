@@ -1,6 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-// 1. Define the Question Schema (Embedded)
 const questionSchema = new Schema({
   questionText: { type: String, required: true },
   imageUrl: String,
@@ -18,7 +17,6 @@ export interface IPlayer {
   streak: number;
 }
 
-// 2. Update Interface to match embedded data
 export interface IRoom extends Document {
   code: string;
   hostId: Types.ObjectId;
@@ -28,8 +26,8 @@ export interface IRoom extends Document {
     difficulty: 'EASY' | 'MEDIUM' | 'HARD';
     region?: string;
     isRanked: boolean;
+    isHostPlaying: boolean;
   };
-  // CHANGED: Now stores full objects, not IDs
   questions: {
     questionText: string;
     imageUrl?: string;
@@ -50,9 +48,9 @@ const roomSchema = new Schema<IRoom>({
     type: { type: String, required: true },
     difficulty: { type: String, default: 'MEDIUM' },
     region: String,
-    isRanked: { type: Boolean, default: false }
+    isRanked: { type: Boolean, default: false },
+    isHostPlaying: { type: Boolean, default: true }
   },
-  // CHANGED: Use the embedded schema
   questions: [questionSchema], 
   status: { type: String, enum: ['WAITING', 'PLAYING', 'FINISHED'], default: 'WAITING' },
   players: [{
