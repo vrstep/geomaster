@@ -68,6 +68,7 @@ export const typeDefs = `#graphql
     players: [PlayerState!]!
     currentQuestionIndex: Int!
     questions: [Question!]! # The actual questions for this game
+    roundStartTime: String
   }
 
   type AuthPayload {

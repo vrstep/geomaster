@@ -92,7 +92,7 @@ export const resolvers = {
     startGame: async (_: any, { code }: any, context: any) => {
       const room = await Room.findOne({ code });
       if (!room) throw new GraphQLError('Room not found');
-      if (room.hostId.toString() !== context.user.userId) throw new GraphQLError('Only host can start');
+      if (room.hostId.toString() !== context.user.userId.toString()) throw new GraphQLError('Only host can start');
 
       room.status = 'PLAYING';
       room.roundStartTime = new Date();
