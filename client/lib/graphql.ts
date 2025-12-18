@@ -60,6 +60,7 @@ export const CREATE_ROOM_MUTATION = gql`
       }
       config {
         isHostPlaying
+        type
       }
     }
   }
@@ -73,6 +74,13 @@ export const GET_ROOM_QUERY = gql`
       status
       currentQuestionIndex
       roundStartTime
+      config {
+        isHostPlaying
+        type
+        mode
+        difficulty
+        isRanked
+      }
       host {
         id
         username
@@ -124,6 +132,7 @@ export const START_GAME_MUTATION = gql`
   }
 `;
 
+// ✅ CRITICAL FIX: Added 'config' and 'questions' here to prevent crashes on update
 export const ROOM_UPDATED_SUBSCRIPTION = gql`
   subscription RoomUpdated($code: String!) {
     roomUpdated(code: $code) {
@@ -132,6 +141,11 @@ export const ROOM_UPDATED_SUBSCRIPTION = gql`
       status
       currentQuestionIndex
       roundStartTime
+      config {
+        isHostPlaying
+        type
+        mode
+      }
       host {
         id
         username
@@ -145,6 +159,11 @@ export const ROOM_UPDATED_SUBSCRIPTION = gql`
         hasAnsweredCurrent
         streak
       }
+      questions {
+        questionText
+        imageUrl
+        options
+      }
     }
   }
 `;
@@ -156,6 +175,20 @@ export const TOGGLE_READY_MUTATION = gql`
       players {
         userId
         isReady
+      }
+    }
+  }
+`;
+
+export const SUBMIT_ANSWER_MUTATION = gql`
+  mutation SubmitAnswer($code: String!, $answerIndex: Int!) {
+    submitAnswer(code: $code, answerIndex: $answerIndex) {
+      id
+      players {
+        userId
+        score
+        hasAnsweredCurrent
+        streak
       }
     }
   }

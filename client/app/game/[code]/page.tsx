@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Lobby } from "@/components/game/Lobby";
 import { GET_ROOM_QUERY, ROOM_UPDATED_SUBSCRIPTION, JOIN_ROOM_MUTATION } from "@/lib/graphql";
 import { useAuthStore } from "@/store/useAuthStore";
+import { GameScreen } from "@/components/game/GameScreen";
 
 // Define types for the queries and subscriptions
 interface Player {
@@ -59,12 +60,6 @@ interface JoinRoomData {
   };
 }
 
-// Placeholder for now (we will build this next)
-const GameScreen = ({ room }: { room: Room }) => (
-  <div className="flex items-center justify-center h-screen">
-    <h1 className="text-3xl font-bold animate-bounce">🎮 Game In Progress...</h1>
-  </div>
-);
 
 export default function GameRoomPage() {
   const params = useParams();
