@@ -21,6 +21,7 @@ interface Player {
   score: number;
   isReady: boolean;
   hasAnsweredCurrent: boolean;
+  currentAnswer: number | null;
   streak: number;
 }
 
@@ -28,6 +29,7 @@ interface Question {
   questionText: string;
   imageUrl?: string;
   options: string[];
+  correctAnswer: string;
 }
 
 interface Room {

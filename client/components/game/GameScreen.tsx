@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation"; 
 import { useMutation } from "@apollo/client/react";
-import { Check, X, Clock, Trophy, Loader2, Crown } from "lucide-react";
+import { Check, X, Clock, Trophy, Loader2, Crown, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,7 @@ interface Player {
   avatar?: string;
   score: number;
   hasAnsweredCurrent: boolean;
+  currentAnswer: number | null;
   streak: number;
 }
 
@@ -29,6 +30,7 @@ interface Question {
   questionText: string;
   imageUrl?: string;
   options: string[];
+  correctAnswer: string;
 }
 
 interface Room {
@@ -51,18 +53,32 @@ interface GameScreenProps {
   room: Room;
 }
 
-// ----------------------------------------------------------------------
-// SUB-COMPONENT: The Active Question Area
-// ----------------------------------------------------------------------
 function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player }) {
   const [timeLeft, setTimeLeft] = useState(20);
   const [submitAnswer, { loading: submitting }] = useMutation(SUBMIT_ANSWER_MUTATION);
-  const [feedback, setFeedback] = useState<"CORRECT" | "WRONG" | "TIMEOUT" | null>(null);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
+  const [showAnswerDistribution, setShowAnswerDistribution] = useState(false);
+  const [answerDistribution, setAnswerDistribution] = useState<number[]>([0, 0, 0, 0]);
   
-  const initialScore = useRef(myPlayer?.score || 0);
+  const hasSubmittedRef = useRef(false);
+  const wasTimeoutRef = useRef(false);
+  const previousQuestionIndex = useRef(room.currentQuestionIndex);
   const { user } = useAuthStore();
   const isProjectorMode = room.host?.id === user?.id && !room.config.isHostPlaying;
   const currentQuestion = room.questions[room.currentQuestionIndex];
+  
+  const allPlayersAnswered = room.players.every(p => p.hasAnsweredCurrent);
+
+  // Reset when question changes
+  useEffect(() => {
+    if (room.currentQuestionIndex !== previousQuestionIndex.current) {
+      hasSubmittedRef.current = false;
+      wasTimeoutRef.current = false;
+      setSelectedAnswerIndex(null);
+      setShowAnswerDistribution(false);
+      previousQuestionIndex.current = room.currentQuestionIndex;
+    }
+  }, [room.currentQuestionIndex]);
 
   // 1. Timer Logic
   useEffect(() => {
@@ -88,21 +104,40 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
     return () => clearInterval(interval);
   }, [room.roundStartTime]);
 
-  // 2. Score Feedback Logic
+  // 2. Show answer distribution when all players have answered
   useEffect(() => {
-    if (!myPlayer) return;
-    if (myPlayer.score > initialScore.current) {
-      setFeedback("CORRECT");
-    } else if (myPlayer.hasAnsweredCurrent && myPlayer.score === initialScore.current && !feedback) {
-      // If timeLeft is 0, assume it was a timeout, otherwise it was a wrong click
-      setFeedback(timeLeft === 0 ? "TIMEOUT" : "WRONG");
+    if (allPlayersAnswered && !showAnswerDistribution) {
+      // Calculate distribution from actual player answers
+      const distribution = [0, 0, 0, 0];
+      room.players.forEach(player => {
+        if (player.currentAnswer !== null && player.currentAnswer >= 0 && player.currentAnswer < 4) {
+          distribution[player.currentAnswer]++;
+        }
+      });
+      
+      setAnswerDistribution(distribution);
+      setShowAnswerDistribution(true);
+      
+      // Hide after 1.2 seconds
+      setTimeout(() => {
+        setShowAnswerDistribution(false);
+      }, 1200);
     }
-  }, [myPlayer?.score, myPlayer?.hasAnsweredCurrent, feedback, myPlayer, timeLeft]);
+  }, [allPlayersAnswered, showAnswerDistribution, room.players]);
 
-  // 3. Handle Answer Submission
   const handleAnswer = (index: number) => {
-    // Prevent manual clicks if time is out, BUT allow index -1 (auto-submit)
-    if ((timeLeft === 0 && index !== -1) || submitting) return;
+    if (hasSubmittedRef.current || submitting) return;
+    if (timeLeft === 0 && index !== -1) return;
+
+    if (index !== -1) {
+      setSelectedAnswerIndex(index);
+    }
+
+    if (index === -1) {
+      wasTimeoutRef.current = true;
+    }
+
+    hasSubmittedRef.current = true;
 
     submitAnswer({
       variables: { code: room.code, answerIndex: index },
@@ -110,19 +145,16 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
     });
   };
 
-  // 4. ✅ AUTO-SUBMIT ON TIMEOUT
   useEffect(() => {
-    // If time is up, player exists, hasn't answered, and isn't currently submitting
-    if (timeLeft === 0 && myPlayer && !myPlayer.hasAnsweredCurrent && !submitting) {
+    if (timeLeft === 0 && myPlayer && !myPlayer.hasAnsweredCurrent && !submitting && !hasSubmittedRef.current) {
       console.log("Time up! Auto-submitting...");
-      handleAnswer(-1); // -1 ensures it matches no option and counts as wrong
+      handleAnswer(-1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, myPlayer?.hasAnsweredCurrent, submitting]);
 
   return (
     <div className="flex-1 flex flex-col p-4 md:p-8 relative overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-lg px-3 py-1 border-2">
@@ -158,7 +190,6 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
           </div>
         )}
         
-        {/* Answer Buttons */}
         {!isProjectorMode && (
           <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {currentQuestion.options.map((option, idx) => {
@@ -168,15 +199,20 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
                  "bg-yellow-500 hover:bg-yellow-600 border-yellow-700",
                  "bg-green-500 hover:bg-green-600 border-green-700"
                ];
+               const isSelected = selectedAnswerIndex === idx;
+               
                return (
                  <Button
                    key={idx}
                    onClick={() => handleAnswer(idx)}
                    disabled={myPlayer?.hasAnsweredCurrent || timeLeft === 0 || submitting}
                    className={cn(
-                     "h-20 md:h-24 text-xl md:text-2xl font-bold shadow-lg border-b-4 transition-all active:border-b-0 active:translate-y-1",
+                     "h-20 md:h-24 text-xl md:text-2xl font-bold shadow-lg transition-all",
                      colors[idx % 4],
-                     myPlayer?.hasAnsweredCurrent && "opacity-50 cursor-not-allowed"
+                     isSelected && myPlayer?.hasAnsweredCurrent 
+                       ? "border-b-0 translate-y-1 scale-95 ring-4 ring-white/50" 
+                       : "border-b-4 active:border-b-0 active:translate-y-1",
+                     myPlayer?.hasAnsweredCurrent && !isSelected && "opacity-50"
                    )}
                  >
                    <span className="mr-3 opacity-50">
@@ -189,53 +225,91 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
           </div>
         )}
 
-        {/* Feedback Overlay */}
-        {myPlayer?.hasAnsweredCurrent && (
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-20 animate-in fade-in">
-            <Card className="w-[90%] max-w-md shadow-2xl border-0">
-              <CardContent className="flex flex-col items-center p-8 text-center">
-                {feedback === "CORRECT" ? (
-                    <>
-                      <Check className="w-20 h-20 text-green-500 mb-4 animate-bounce" />
-                      <h2 className="text-3xl font-black text-green-600 mb-2">Correct!</h2>
-                      <p className="text-muted-foreground">+100 pts (+speed bonus)</p>
-                    </>
-                ) : feedback === "WRONG" ? (
-                    <>
-                      <X className="w-20 h-20 text-red-500 mb-4 animate-shake" />
-                      <h2 className="text-3xl font-black text-red-600 mb-2">Wrong Answer</h2>
-                      <p className="text-muted-foreground">Better luck next round!</p>
-                    </>
-                ) : feedback === "TIMEOUT" ? (
-                    <>
-                      <Clock className="w-20 h-20 text-orange-500 mb-4 animate-pulse" />
-                      <h2 className="text-3xl font-black text-orange-600 mb-2">Time's Up!</h2>
-                      <p className="text-muted-foreground">Too slow this time.</p>
-                    </>
-                ) : (
-                    <>
-                      <Loader2 className="w-16 h-16 text-indigo-500 mb-4 animate-spin" />
-                      <h2 className="text-2xl font-bold text-indigo-900 mb-2">Submitted</h2>
-                      <p className="text-muted-foreground">Waiting for others...</p>
-                    </>
-                )}
-                
-                <div className="mt-6 flex items-center gap-2 text-sm font-bold text-slate-500">
-                  <Trophy className="w-4 h-4" /> 
-                  Streak: {myPlayer.streak} 🔥
+        {/* Answer Distribution Overlay - Shows briefly after all players answer */}
+        {showAnswerDistribution && allPlayersAnswered && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20 animate-in fade-in">
+            <Card className="w-[90%] max-w-2xl shadow-2xl border-0">
+              <CardContent className="p-8">
+                <h3 className="text-2xl font-bold text-center mb-6">Answer Distribution</h3>
+                <div className="space-y-4">
+                  {currentQuestion.options.map((option, idx) => {
+                    const colors = ["bg-red-500", "bg-blue-500", "bg-yellow-500", "bg-green-500"];
+                    const icons = ["▲", "◆", "●", "■"];
+                    const count = answerDistribution[idx];
+                    const percentage = room.players.length > 0 ? (count / room.players.length) * 100 : 0;
+                    const isCorrect = option === (currentQuestion as any).correctAnswer;
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        className={cn(
+                          "flex items-center gap-4 p-3 rounded-lg transition-all",
+                          isCorrect && "bg-green-100 ring-4 ring-green-500 ring-opacity-50"
+                        )}
+                      >
+                        <div className={cn(
+                          "w-12 h-12 rounded flex items-center justify-center text-white font-bold relative",
+                          colors[idx]
+                        )}>
+                          {icons[idx]}
+                          {isCorrect && (
+                            <Check className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full p-0.5 text-white" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between mb-1">
+                            <span className={cn(
+                              "font-medium truncate",
+                              isCorrect && "font-bold text-green-700"
+                            )}>
+                              {option}
+                              {isCorrect && " ✓"}
+                            </span>
+                            <span className="font-bold ml-2">{count} player{count !== 1 ? 's' : ''}</span>
+                          </div>
+                          <Progress 
+                            value={percentage} 
+                            className={cn(
+                              "h-2",
+                              isCorrect && "bg-green-200"
+                            )} 
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Waiting for Others - Shows after player answers but before all finish */}
+        {myPlayer?.hasAnsweredCurrent && !showAnswerDistribution && !allPlayersAnswered && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30">
+            <Card className="shadow-lg border-2 border-indigo-200 bg-white/95 backdrop-blur">
+              <CardContent className="flex items-center gap-3 p-4">
+                <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
+                <div>
+                  <p className="font-bold text-sm">Waiting for others...</p>
+                  <p className="text-xs text-muted-foreground">
+                    {room.players.filter(p => p.hasAnsweredCurrent).length} / {room.players.length} answered
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Gray overlay when player has answered */}
+        {myPlayer?.hasAnsweredCurrent && !showAnswerDistribution && (
+          <div className="absolute inset-0 bg-slate-900/20 pointer-events-none z-10" />
         )}
       </div>
     </div>
   );
 }
 
-// ----------------------------------------------------------------------
-// SUB-COMPONENT: Game Over
-// ----------------------------------------------------------------------
 function GameOverScreen({ players }: { players: Player[] }) {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const winner = sortedPlayers[0];
@@ -293,7 +367,7 @@ function GameOverScreen({ players }: { players: Player[] }) {
             </Avatar>
             <div className="h-24 w-24 bg-orange-800 rounded-t-lg flex items-center justify-center text-2xl font-bold">3rd</div>
             <p className="mt-2 font-bold">{third.username}</p>
-            <p className="text-sm opacity-80">{third.score} pts</p>
+            <p className="text-xs opacity-80">{third.score} pts</p>
           </div>
         )}
       </div>
@@ -305,12 +379,16 @@ function GameOverScreen({ players }: { players: Player[] }) {
   );
 }
 
-// ----------------------------------------------------------------------
-// MAIN COMPONENT
-// ----------------------------------------------------------------------
 export function GameScreen({ room }: GameScreenProps) {
   const { user } = useAuthStore();
+  const router = useRouter();
   const myPlayer = room.players.find(p => p.userId === user?.id);
+
+  const handleLeaveRoom = () => {
+    if (confirm("Are you sure you want to leave this game?")) {
+      router.push("/");
+    }
+  };
 
   if (room.status === "FINISHED") {
     return <GameOverScreen players={room.players} />;
@@ -319,10 +397,6 @@ export function GameScreen({ room }: GameScreenProps) {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       
-      {/* KEY TRICK: passing room.currentQuestionIndex as 'key' 
-        forces ActiveQuestionView to unmount/remount on question change.
-        This automatically resets timer, feedback, and local state!
-      */}
       <ActiveQuestionView 
         key={room.currentQuestionIndex} 
         room={room} 
@@ -331,9 +405,19 @@ export function GameScreen({ room }: GameScreenProps) {
 
       {/* RIGHT: Sidebar (Leaderboard) */}
       <div className="w-full md:w-80 bg-white border-l p-4 flex flex-col shadow-xl z-10">
-         <div className="flex items-center gap-2 mb-4 pb-4 border-b">
-            <Trophy className="w-5 h-5 text-yellow-500" />
-            <h3 className="font-bold text-lg">Leaderboard</h3>
+         <div className="flex items-center justify-between mb-4 pb-4 border-b">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-500" />
+              <h3 className="font-bold text-lg">Leaderboard</h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLeaveRoom}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
          </div>
          
          <div className="flex-1 overflow-y-auto space-y-3 pr-2">

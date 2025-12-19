@@ -32,6 +32,7 @@ export const typeDefs = `#graphql
     questionText: String!
     imageUrl: String
     options: [String!]!
+    correctAnswer: String!
   }
 
   type Quiz {
@@ -48,6 +49,7 @@ export const typeDefs = `#graphql
     score: Int!
     isReady: Boolean!
     hasAnsweredCurrent: Boolean!
+    currentAnswer: Int
     streak: Int!
   }
 

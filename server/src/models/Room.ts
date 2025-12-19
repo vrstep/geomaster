@@ -60,6 +60,7 @@ const roomSchema = new Schema<IRoom>({
     score: { type: Number, default: 0 },
     isReady: { type: Boolean, default: false },
     hasAnsweredCurrent: { type: Boolean, default: false },
+    currentAnswer: { type: Number, default: null },
     streak: { type: Number, default: 0 }
   }],
   currentQuestionIndex: { type: Number, default: 0 },
