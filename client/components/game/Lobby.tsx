@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation } from "@apollo/client/react";
-import { Users, Copy, Play, Crown, Loader2 } from "lucide-react";
+import { Users, Copy, Play, Crown, Loader2, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,9 @@ interface Room {
   status: string;
   host: Host | null;
   players: Player[];
+  config: {
+    isHostPlaying: boolean;
+  };
 }
 
 interface LobbyProps {
@@ -54,10 +58,36 @@ interface ToggleReadyData {
 
 export function Lobby({ room }: LobbyProps) {
   const { user } = useAuthStore();
+  const router = useRouter();
   const isHost = user?.id === room.host?.id;
   
   // Check if the current user is in the players list
   const myPlayer = room.players.find((p) => p.userId === user?.id);
+
+  // ✅ Check if all players are ready
+  const allPlayersReady = room.players.every((p) => p.isReady);
+  const readyCount = room.players.filter((p) => p.isReady).length;
+
+  // ✅ Validate game start conditions
+  const canStartGame = () => {
+    const playerCount = room.players.length;
+    
+    // Check minimum player count
+    if (room.config.isHostPlaying && playerCount < 2) {
+      return { valid: false, reason: "Need at least 2 players to start (including you)" };
+    }
+    
+    if (!room.config.isHostPlaying && playerCount < 2) {
+      return { valid: false, reason: "Need at least 2 players to start in Projector Mode" };
+    }
+
+    // ✅ Check if all players are ready
+    if (!allPlayersReady) {
+      return { valid: false, reason: `Waiting for all players to be ready (${readyCount}/${playerCount})` };
+    }
+    
+    return { valid: true, reason: "" };
+  };
 
   const [startGame, { loading: starting }] = useMutation<StartGameData>(START_GAME_MUTATION, {
     onError: (err) => toast.error("Error", { description: err.message }),
@@ -72,9 +102,39 @@ export function Lobby({ room }: LobbyProps) {
     toast("Copied!", { description: "Room code copied to clipboard" });
   };
 
+  const handleStartGame = () => {
+    const validation = canStartGame();
+    
+    if (!validation.valid) {
+      toast.error("Cannot Start Game", { description: validation.reason });
+      return;
+    }
+    
+    startGame({ variables: { code: room.code } });
+  };
+
+  const handleLeaveRoom = () => {
+    if (confirm("Are you sure you want to leave this room?")) {
+      router.push("/");
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 max-w-4xl mx-auto w-full px-4 pb-32">
       
+      {/* Leave Button - Top Right */}
+      <div className="fixed top-4 right-4 z-50">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleLeaveRoom}
+          className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+        >
+          <LogOut className="w-4 h-4" />
+          Leave Room
+        </Button>
+      </div>
+
       {/* Room Info */}
       <Card className="w-full shadow-lg border-t-4 border-t-primary">
         <CardHeader className="text-center pb-2">
@@ -89,9 +149,17 @@ export function Lobby({ room }: LobbyProps) {
           </div>
         </CardHeader>
         <CardContent className="flex justify-center pb-6">
-           <div className="flex items-center gap-2 text-muted-foreground bg-slate-100 px-4 py-2 rounded-full">
-              <Users className="w-4 h-4" />
-              <span className="font-medium">{room.players.length} {room.players.length === 1 ? 'player' : 'players'} joined</span>
+           <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2 text-muted-foreground bg-slate-100 px-4 py-2 rounded-full">
+                <Users className="w-4 h-4" />
+                <span className="font-medium">{room.players.length} {room.players.length === 1 ? 'player' : 'players'} joined</span>
+             </div>
+             <div className={cn(
+               "flex items-center gap-2 px-4 py-2 rounded-full font-medium",
+               allPlayersReady ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+             )}>
+                <span>{readyCount}/{room.players.length} Ready</span>
+             </div>
            </div>
         </CardContent>
       </Card>
@@ -121,7 +189,7 @@ export function Lobby({ room }: LobbyProps) {
                 <p className="font-bold truncate">{player.username}</p>
                 <div className="flex items-center justify-center gap-1 mt-1">
                   {player.isReady ? (
-                    <Badge variant="default" className="bg-green-600 hover:bg-green-700">Ready</Badge>
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-700">✓ Ready</Badge>
                   ) : (
                     <Badge variant="secondary">Not Ready</Badge>
                   )}
@@ -159,9 +227,14 @@ export function Lobby({ room }: LobbyProps) {
         {isHost && (
           <Button 
             size="lg" 
-            className="min-w-[200px] text-lg font-bold shadow-xl bg-green-600 hover:bg-green-700"
-            onClick={() => startGame({ variables: { code: room.code } })}
-            disabled={starting}
+            className={cn(
+              "min-w-[200px] text-lg font-bold shadow-xl transition-all",
+              canStartGame().valid 
+                ? "bg-green-600 hover:bg-green-700" 
+                : "bg-gray-400 cursor-not-allowed"
+            )}
+            onClick={handleStartGame}
+            disabled={starting || !canStartGame().valid}
           >
             {starting ? (
               <>

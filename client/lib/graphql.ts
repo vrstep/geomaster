@@ -92,12 +92,14 @@ export const GET_ROOM_QUERY = gql`
         score
         isReady
         hasAnsweredCurrent
+        currentAnswer
         streak
       }
       questions {
         questionText
         imageUrl
         options
+        correctAnswer
       }
     }
   }
@@ -132,7 +134,7 @@ export const START_GAME_MUTATION = gql`
   }
 `;
 
-// ✅ CRITICAL FIX: Added 'config' and 'questions' here to prevent crashes on update
+// ✅ Added currentAnswer field for answer distribution tracking
 export const ROOM_UPDATED_SUBSCRIPTION = gql`
   subscription RoomUpdated($code: String!) {
     roomUpdated(code: $code) {
@@ -157,12 +159,14 @@ export const ROOM_UPDATED_SUBSCRIPTION = gql`
         score
         isReady
         hasAnsweredCurrent
+        currentAnswer
         streak
       }
       questions {
         questionText
         imageUrl
         options
+        correctAnswer
       }
     }
   }
@@ -188,6 +192,7 @@ export const SUBMIT_ANSWER_MUTATION = gql`
         userId
         score
         hasAnsweredCurrent
+        currentAnswer
         streak
       }
     }
