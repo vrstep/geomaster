@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { SUBMIT_ANSWER_MUTATION } from "@/lib/graphql";
+import { SUBMIT_ANSWER_MUTATION, LEAVE_ROOM_MUTATION } from "@/lib/graphql";
 import { useAuthStore } from "@/store/useAuthStore";
 
 // --- Types ---
@@ -392,9 +392,18 @@ export function GameScreen({ room }: GameScreenProps) {
   const router = useRouter();
   const myPlayer = room.players.find(p => p.userId === user?.id);
 
-  const handleLeaveRoom = () => {
-    if (confirm("Are you sure you want to leave this game?")) {
+  const [leaveRoom, { loading: leaving }] = useMutation(LEAVE_ROOM_MUTATION, {
+    variables: { code: room.code },
+    onCompleted: () => {
+      toast.success("Left Game", { description: "You have left the game" });
       router.push("/");
+    },
+    onError: (err) => toast.error("Error", { description: err.message }),
+  });
+
+  const handleLeaveRoom = () => {
+    if (confirm("Are you sure you want to leave this game? Your current score will be saved.")) {
+      leaveRoom();
     }
   };
 
@@ -422,9 +431,11 @@ export function GameScreen({ room }: GameScreenProps) {
               variant="ghost"
               size="sm"
               onClick={handleLeaveRoom}
+              disabled={leaving}
               className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="Leave Game"
             >
-              <LogOut className="w-4 h-4" />
+              {leaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
             </Button>
          </div>
          

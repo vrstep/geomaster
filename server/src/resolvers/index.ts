@@ -134,6 +134,52 @@ export const resolvers = {
       pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
       return room;
     },
+
+    leaveRoom: async (_: any, { code }: any, context: any) => {
+      if (!context.user) throw new GraphQLError('Unauthorized');
+
+      const room = await Room.findOne({ code });
+      if (!room) throw new GraphQLError('Room not found');
+
+      const playerIndex = room.players.findIndex(p => p.userId.toString() === context.user.userId);
+      if (playerIndex === -1) {
+        throw new GraphQLError('You are not in this room');
+      }
+
+      const isHost = room.hostId.toString() === context.user.userId;
+
+      // Remove player from the room
+      room.players.splice(playerIndex, 1);
+
+      // If host leaves, handle differently based on room state
+      if (isHost) {
+        if (room.players.length === 0) {
+          // Only delete room if it's in WAITING state
+          // If game finished, keep the room for a bit (could add cleanup job later)
+          if (room.status === 'WAITING') {
+            await Room.deleteOne({ code });
+            pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: null });
+            return true;
+          }
+          // If game was in progress or finished, mark it as finished but don't delete
+          room.status = 'FINISHED';
+        } else {
+          // Transfer host to next player
+          room.hostId = room.players[0].userId;
+        }
+      }
+
+      // If game is in progress and only 1 or 0 players remain, end the game
+      if (room.status === 'PLAYING' && room.players.length < 2) {
+        room.status = 'FINISHED';
+      }
+
+      room.markModified('players');
+      await room.save();
+      
+      pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
+      return true;
+    },
     
     submitAnswer: async (_: any, { code, answerIndex }: any, context: any) => {
       if (!context.user) throw new GraphQLError('Unauthorized');

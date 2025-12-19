@@ -113,6 +113,23 @@ export default function GameRoomPage() {
   // Show join screen only if: user is NOT the host AND user is NOT in the players list
   const shouldShowJoinScreen = !isHost && !isUserInRoom;
 
+  // ✅ Handle when user is removed from the room (only if they were previously in it)
+  useEffect(() => {
+    if (room && user) {
+      const isUserStillInRoom = room.players.some((p) => p.userId === user.id);
+      const isHostCheck = room.host?.id === user.id;
+      
+      // Only redirect if:
+      // 1. User is NOT in the room AND
+      // 2. User is NOT the host (in projector mode) AND
+      // 3. We've already determined they should be in the room (past the join screen)
+      if (!isUserStillInRoom && !isHostCheck && !shouldShowJoinScreen) {
+        toast.info("You have left the room");
+        router.push("/");
+      }
+    }
+  }, [room?.players, user, router, shouldShowJoinScreen]); // Add shouldShowJoinScreen to deps
+
   if (!code) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4">

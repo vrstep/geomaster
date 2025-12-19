@@ -184,6 +184,12 @@ export const TOGGLE_READY_MUTATION = gql`
   }
 `;
 
+export const LEAVE_ROOM_MUTATION = gql`
+  mutation LeaveRoom($code: String!) {
+    leaveRoom(code: $code)
+  }
+`;
+
 export const SUBMIT_ANSWER_MUTATION = gql`
   mutation SubmitAnswer($code: String!, $answerIndex: Int!) {
     submitAnswer(code: $code, answerIndex: $answerIndex) {

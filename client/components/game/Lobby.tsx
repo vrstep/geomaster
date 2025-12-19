@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { START_GAME_MUTATION, TOGGLE_READY_MUTATION } from "@/lib/graphql";
+import { START_GAME_MUTATION, TOGGLE_READY_MUTATION, LEAVE_ROOM_MUTATION } from "@/lib/graphql";
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +97,15 @@ export function Lobby({ room }: LobbyProps) {
     onError: (err) => toast.error("Error", { description: err.message }),
   });
 
+  const [leaveRoom, { loading: leaving }] = useMutation(LEAVE_ROOM_MUTATION, {
+    variables: { code: room.code },
+    onCompleted: () => {
+      toast.success("Left Room", { description: "You have left the game" });
+      router.push("/");
+    },
+    onError: (err) => toast.error("Error", { description: err.message }),
+  });
+
   const handleCopyCode = () => {
     navigator.clipboard.writeText(room.code);
     toast("Copied!", { description: "Room code copied to clipboard" });
@@ -115,7 +124,7 @@ export function Lobby({ room }: LobbyProps) {
 
   const handleLeaveRoom = () => {
     if (confirm("Are you sure you want to leave this room?")) {
-      router.push("/");
+      leaveRoom();
     }
   };
 
@@ -128,9 +137,14 @@ export function Lobby({ room }: LobbyProps) {
           variant="outline"
           size="sm"
           onClick={handleLeaveRoom}
+          disabled={leaving}
           className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
         >
-          <LogOut className="w-4 h-4" />
+          {leaving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <LogOut className="w-4 h-4" />
+          )}
           Leave Room
         </Button>
       </div>
