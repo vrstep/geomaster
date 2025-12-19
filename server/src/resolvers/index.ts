@@ -50,6 +50,7 @@ export const resolvers = {
         isReady: false,
         streak: 0,
         hasAnsweredCurrent: false,
+        currentAnswer: null,
         avatar: context.user.avatar || 'default_avatar.png'
       }] : [];
 
@@ -81,6 +82,7 @@ export const resolvers = {
           score: 0,
           isReady: false,
           hasAnsweredCurrent: false,
+          currentAnswer: null,
           streak: 0,
           avatar: "default_avatar.png"
         });
@@ -114,6 +116,17 @@ export const resolvers = {
       if (!room) throw new GraphQLError('Room not found');
       if (room.hostId.toString() !== context.user.userId.toString()) throw new GraphQLError('Only host can start');
 
+      // ✅ VALIDATE MINIMUM PLAYER COUNT
+      const playerCount = room.players.length;
+      
+      if (room.config.isHostPlaying && playerCount < 2) {
+        throw new GraphQLError('Need at least 2 players to start (including host)');
+      }
+      
+      if (!room.config.isHostPlaying && playerCount < 2) {
+        throw new GraphQLError('Need at least 2 players to start in Projector Mode');
+      }
+
       room.status = 'PLAYING';
       room.roundStartTime = new Date();
       await room.save();
@@ -145,7 +158,10 @@ export const resolvers = {
       }
 
       const currentQ: any = room.questions[room.currentQuestionIndex];
-      const isCorrect = currentQ.options[answerIndex] === currentQ.correctAnswer;
+      const isCorrect = answerIndex >= 0 && currentQ.options[answerIndex] === currentQ.correctAnswer;
+      
+      // Store the answer (including -1 for timeout)
+      room.players[playerIndex].currentAnswer = answerIndex;
       
       if (isCorrect) {
         const startTime = room.roundStartTime ? new Date(room.roundStartTime).getTime() : Date.now();
@@ -161,25 +177,39 @@ export const resolvers = {
       
       room.players[playerIndex].hasAnsweredCurrent = true;
 
-      const allAnswered = room.players.every(p => p.hasAnsweredCurrent);
-      if (allAnswered) {
-        if (room.currentQuestionIndex < room.questions.length - 1) {
-          room.currentQuestionIndex += 1;
-          room.roundStartTime = new Date();
-          // Reset hasAnsweredCurrent for all players
-          room.players.forEach((p, idx) => {
-            room.players[idx].hasAnsweredCurrent = false;
-          });
-        } else {
-          room.status = 'FINISHED';
-        }
-      }
-
       // Mark the players array as modified to ensure Mongoose saves it
       room.markModified('players');
       await room.save();
       
+      // Publish the update immediately so players see the distribution
       pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
+
+      const allAnswered = room.players.every(p => p.hasAnsweredCurrent);
+      
+      // If all players have answered, wait 1.5 seconds before moving to next question
+      if (allAnswered) {
+        setTimeout(async () => {
+          const updatedRoom = await Room.findOne({ code });
+          if (!updatedRoom) return;
+          
+          if (updatedRoom.currentQuestionIndex < updatedRoom.questions.length - 1) {
+            updatedRoom.currentQuestionIndex += 1;
+            updatedRoom.roundStartTime = new Date();
+            // Reset hasAnsweredCurrent and currentAnswer for all players
+            updatedRoom.players.forEach((p, idx) => {
+              updatedRoom.players[idx].hasAnsweredCurrent = false;
+              updatedRoom.players[idx].currentAnswer = null;
+            });
+          } else {
+            updatedRoom.status = 'FINISHED';
+          }
+          
+          updatedRoom.markModified('players');
+          await updatedRoom.save();
+          pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: updatedRoom });
+        }, 1500); // Increased to 1.5 seconds to give time for animation
+      }
+      
       return room;
     }
   },

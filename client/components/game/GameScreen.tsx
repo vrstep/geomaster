@@ -53,6 +53,9 @@ interface GameScreenProps {
   room: Room;
 }
 
+// ----------------------------------------------------------------------
+// SUB-COMPONENT: The Active Question Area
+// ----------------------------------------------------------------------
 function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player }) {
   const [timeLeft, setTimeLeft] = useState(20);
   const [submitAnswer, { loading: submitting }] = useMutation(SUBMIT_ANSWER_MUTATION);
@@ -107,21 +110,26 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
   // 2. Show answer distribution when all players have answered
   useEffect(() => {
     if (allPlayersAnswered && !showAnswerDistribution) {
+      console.log('All players answered! Showing distribution...');
+      
       // Calculate distribution from actual player answers
       const distribution = [0, 0, 0, 0];
       room.players.forEach(player => {
+        console.log(`Player ${player.username} answered: ${player.currentAnswer}`);
         if (player.currentAnswer !== null && player.currentAnswer >= 0 && player.currentAnswer < 4) {
           distribution[player.currentAnswer]++;
         }
       });
       
+      console.log('Distribution:', distribution);
       setAnswerDistribution(distribution);
       setShowAnswerDistribution(true);
       
-      // Hide after 1.2 seconds
+      // Hide after 1.5 seconds (matching backend delay)
       setTimeout(() => {
+        console.log('Hiding distribution overlay');
         setShowAnswerDistribution(false);
-      }, 1200);
+      }, 1500);
     }
   }, [allPlayersAnswered, showAnswerDistribution, room.players]);
 
