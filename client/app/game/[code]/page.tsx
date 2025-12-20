@@ -38,6 +38,11 @@ interface Room {
   status: string;
   currentQuestionIndex: number;
   roundStartTime?: string;
+  config: {
+    isHostPlaying: boolean;
+    type: string;
+    mode: string;
+  };
   host: {
     id: string;
     username: string;

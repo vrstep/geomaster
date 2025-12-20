@@ -14,6 +14,7 @@ export interface IPlayer {
   score: number;
   isReady: boolean;
   hasAnsweredCurrent: boolean;
+  currentAnswer: number | null;
   streak: number;
 }
 
