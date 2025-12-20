@@ -2,35 +2,36 @@ import { ApolloClient, InMemoryCache, split, HttpLink } from '@apollo/client';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
-import { SetContextLink } from '@apollo/client/link/context';
+import { setContext } from '@apollo/client/link/context'; // Note: Ensure correct import
+
+// 1. Define the Base URL dynamically
+// If NEXT_PUBLIC_SERVER_URL is set (in Vercel), use it. Otherwise use localhost.
+const BASE_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:4000';
 
 const httpLink = new HttpLink({
-  uri: 'http://localhost:4000/graphql',
+  // Append /graphql to the base URL
+  uri: `${BASE_URL}/graphql`,
 });
 
-const authLink = new SetContextLink((prevContext) => {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("token")
-      : "";
-
+const authLink = setContext((_, { headers }) => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
   return {
     headers: {
-      ...prevContext.headers,
+      ...headers,
       authorization: token ? `Bearer ${token}` : "",
     },
   };
 });
 
-// 3. WebSocket Link (Subscriptions)
-// Only create in browser environment to avoid SSR errors
+// 2. WebSocket Link (Smart Replacement)
 const wsLink = typeof window !== 'undefined' 
   ? new GraphQLWsLink(createClient({
-      url: 'ws://localhost:4000/graphql',
+      // Automatically swap 'http' -> 'ws' or 'https' -> 'wss'
+      url: `${BASE_URL.replace('http', 'ws')}/graphql`,
     })) 
   : null;
 
-// 4. Split Link (Route traffic)
+// 3. Split Link (Route traffic)
 const splitLink = typeof window !== 'undefined' && wsLink
   ? split(
       ({ query }) => {
