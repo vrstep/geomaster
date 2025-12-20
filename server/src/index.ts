@@ -33,6 +33,21 @@ async function startServer() {
   const app = express();
   const httpServer = createServer(app);
 
+  const corsOptions: cors.CorsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:4000',
+    'https://geomaster-tau.vercel.app',
+    'https://geomaster-server.vercel.app',
+    process.env.CLIENT_URL,
+  ].filter((origin): origin is string => Boolean(origin)),
+  credentials: true,
+};
+
+
+  // Apply CORS globally to all routes
+  app.use(cors(corsOptions));
+
   // 3. Create GraphQL Schema
   const schema = makeExecutableSchema({ typeDefs, resolvers });
 
@@ -71,14 +86,24 @@ async function startServer() {
 
   await server.start();
 
-  // 6. Apply Middleware
-  app.use('/graphql', cors<cors.CorsRequest>(), express.json(), expressMiddleware(server, {
+  // 6. Apply GraphQL Middleware
+  // REMOVE cors() from here since we already applied it globally
+  app.use('/graphql', express.json(), expressMiddleware(server, {
     context: async ({ req }) => {
       const token = req.headers.authorization || '';
       const user = verifyToken(token.replace('Bearer ', ''));
       return { user };
     },
   }));
+
+  // ✅ Optional: Health check endpoint
+  app.get('/health', (req, res) => {
+    res.json({ 
+      status: 'ok',
+      mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      timestamp: new Date().toISOString()
+    });
+  });
 
   httpServer.listen(PORT, () => {
     console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
