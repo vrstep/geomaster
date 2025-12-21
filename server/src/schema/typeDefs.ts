@@ -59,7 +59,7 @@ export const typeDefs = `#graphql
     difficulty: String!
     region: String
     isRanked: Boolean!
-    isHostPlaying: Boolean! # ✅ Added this
+    isHostPlaying: Boolean!
   }
 
   type Room {

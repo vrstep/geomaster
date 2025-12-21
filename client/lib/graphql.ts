@@ -134,7 +134,6 @@ export const START_GAME_MUTATION = gql`
   }
 `;
 
-// ✅ Added currentAnswer field for answer distribution tracking
 export const ROOM_UPDATED_SUBSCRIPTION = gql`
   subscription RoomUpdated($code: String!) {
     roomUpdated(code: $code) {

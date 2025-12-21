@@ -73,7 +73,7 @@ const seedData = async () => {
         }
       }
     ]);
-    console.log('✅ Created 3 test users');
+    console.log('Created 3 test users');
 
     // 3. Create Capitals Quiz with 10 questions
     const capitalsQuiz = new Quiz({
@@ -262,7 +262,7 @@ const seedData = async () => {
     });
 
     await Quiz.insertMany([capitalsQuiz, flagsQuiz, bordersQuiz]);
-    console.log('✅ Database seeded with 3 quizzes (10 questions each)!');
+    console.log('Database seeded with 3 quizzes (10 questions each)!');
     
     console.log('\n📊 Summary:');
     console.log(`- Users created: ${users.length}`);

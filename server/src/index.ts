@@ -20,7 +20,6 @@ const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || '';
 
 async function startServer() {
-  // 1. Connect to MongoDB
   try {
     await mongoose.connect(MONGO_URI);
     console.log('✅ MongoDB Connected');
@@ -29,7 +28,6 @@ async function startServer() {
     process.exit(1);
   }
 
-  // 2. Setup Express & HTTP Server
   const app = express();
   const httpServer = createServer(app);
 
@@ -38,20 +36,16 @@ async function startServer() {
     'http://localhost:3000',
     'http://localhost:4000',
     'https://geomaster-tau.vercel.app',
-    'https://geomaster-server.vercel.app',
+    'https://geomaster-server.onrender.com',
     process.env.CLIENT_URL,
   ].filter((origin): origin is string => Boolean(origin)),
   credentials: true,
 };
 
-
-  // Apply CORS globally to all routes
   app.use(cors(corsOptions));
 
-  // 3. Create GraphQL Schema
   const schema = makeExecutableSchema({ typeDefs, resolvers });
 
-  // 4. Setup WebSocket Server for Subscriptions
   const wsServer = new WebSocketServer({
     server: httpServer,
     path: '/graphql',
@@ -60,18 +54,14 @@ async function startServer() {
   const serverCleanup = useServer({
     schema,
     context: async (ctx) => {
-      // Handle WS auth if needed (e.g., via connectionParams)
       return ctx;
     },
   }, wsServer);
 
-  // 5. Setup Apollo Server
   const server = new ApolloServer({
     schema,
     plugins: [
-      // Proper shutdown for the HTTP server
       ApolloServerPluginDrainHttpServer({ httpServer }),
-      // Proper shutdown for the WebSocket server
       {
         async serverWillStart() {
           return {
@@ -86,8 +76,6 @@ async function startServer() {
 
   await server.start();
 
-  // 6. Apply GraphQL Middleware
-  // REMOVE cors() from here since we already applied it globally
   app.use('/graphql', express.json(), expressMiddleware(server, {
     context: async ({ req }) => {
       const token = req.headers.authorization || '';
@@ -96,7 +84,6 @@ async function startServer() {
     },
   }));
 
-  // ✅ Optional: Health check endpoint
   app.get('/health', (req, res) => {
     res.json({ 
       status: 'ok',
@@ -106,8 +93,8 @@ async function startServer() {
   });
 
   httpServer.listen(PORT, () => {
-    console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
-    console.log(`📡 Subscriptions ready at ws://localhost:${PORT}/graphql`);
+    console.log(`Server ready at http://localhost:${PORT}/graphql`);
+    console.log(`Subscriptions ready at ws://localhost:${PORT}/graphql`);
   });
 }
 

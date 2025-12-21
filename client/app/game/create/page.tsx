@@ -19,7 +19,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CREATE_ROOM_MUTATION } from "@/lib/graphql";
 
-// Validation Schema
 const formSchema = z.object({
   mode: z.enum(["SINGLE", "MULTI"]),
   type: z.enum(["CAPITALS", "FLAGS", "BORDERS"]),
@@ -31,7 +30,6 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-// Define types for the mutation response
 interface CreateRoomData {
   createRoom: {
     id: string;
@@ -46,12 +44,10 @@ interface CreateRoomData {
 export default function CreateGamePage() {
   const router = useRouter();
   
-  // Setup Mutation
   const [createRoom, { loading }] = useMutation<CreateRoomData>(CREATE_ROOM_MUTATION, {
     onCompleted: (data) => {
       const code = data.createRoom.code;
       toast("Room Created!", { description: `Room Code: ${code}` });
-      // Redirect to the lobby
       router.push(`/game/${code}`);
     },
     onError: (err) => {

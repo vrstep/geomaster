@@ -116,7 +116,6 @@ export const resolvers = {
       if (!room) throw new GraphQLError('Room not found');
       if (room.hostId.toString() !== context.user.userId.toString()) throw new GraphQLError('Only host can start');
 
-      // ✅ VALIDATE MINIMUM PLAYER COUNT
       const playerCount = room.players.length;
       
       if (room.config.isHostPlaying && playerCount < 2) {
@@ -148,28 +147,21 @@ export const resolvers = {
 
       const isHost = room.hostId.toString() === context.user.userId;
 
-      // Remove player from the room
       room.players.splice(playerIndex, 1);
 
-      // If host leaves, handle differently based on room state
       if (isHost) {
         if (room.players.length === 0) {
-          // Only delete room if it's in WAITING state
-          // If game finished, keep the room for a bit (could add cleanup job later)
           if (room.status === 'WAITING') {
             await Room.deleteOne({ code });
             pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: null });
             return true;
           }
-          // If game was in progress or finished, mark it as finished but don't delete
           room.status = 'FINISHED';
         } else {
-          // Transfer host to next player
           room.hostId = room.players[0].userId;
         }
       }
 
-      // If game is in progress and only 1 or 0 players remain, end the game
       if (room.status === 'PLAYING' && room.players.length < 2) {
         room.status = 'FINISHED';
       }
@@ -186,13 +178,11 @@ export const resolvers = {
       const room = await Room.findOne({ code }); 
       if (!room) throw new GraphQLError('Room not found');
 
-      // Find the player INDEX instead of the object reference
       const playerIndex = room.players.findIndex(p => p.userId.toString() === context.user.userId);
       if (playerIndex === -1) {
         throw new GraphQLError('You are not part of this room');
       }
 
-      // Access player using the index for proper Mongoose reactivity
       const player = room.players[playerIndex];
 
       if (player.hasAnsweredCurrent) {
@@ -206,7 +196,6 @@ export const resolvers = {
       const currentQ: any = room.questions[room.currentQuestionIndex];
       const isCorrect = answerIndex >= 0 && currentQ.options[answerIndex] === currentQ.correctAnswer;
       
-      // Store the answer (including -1 for timeout)
       room.players[playerIndex].currentAnswer = answerIndex;
       
       if (isCorrect) {
@@ -214,7 +203,6 @@ export const resolvers = {
         const timeTaken = (Date.now() - startTime) / 1000;
         const speedBonus = Math.max(0, Math.floor((15 - timeTaken) * 10));
         
-        // Update using array index to ensure Mongoose tracks changes
         room.players[playerIndex].score += (100 + speedBonus);
         room.players[playerIndex].streak += 1;
       } else {
@@ -223,16 +211,13 @@ export const resolvers = {
       
       room.players[playerIndex].hasAnsweredCurrent = true;
 
-      // Mark the players array as modified to ensure Mongoose saves it
       room.markModified('players');
       await room.save();
       
-      // Publish the update immediately so players see the distribution
       pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: room });
 
       const allAnswered = room.players.every(p => p.hasAnsweredCurrent);
       
-      // If all players have answered, wait 1.5 seconds before moving to next question
       if (allAnswered) {
         setTimeout(async () => {
           const updatedRoom = await Room.findOne({ code });
@@ -241,7 +226,6 @@ export const resolvers = {
           if (updatedRoom.currentQuestionIndex < updatedRoom.questions.length - 1) {
             updatedRoom.currentQuestionIndex += 1;
             updatedRoom.roundStartTime = new Date();
-            // Reset hasAnsweredCurrent and currentAnswer for all players
             updatedRoom.players.forEach((p, idx) => {
               updatedRoom.players[idx].hasAnsweredCurrent = false;
               updatedRoom.players[idx].currentAnswer = null;
@@ -253,7 +237,7 @@ export const resolvers = {
           updatedRoom.markModified('players');
           await updatedRoom.save();
           pubsub.publish(`ROOM_UPDATED_${code}`, { roomUpdated: updatedRoom });
-        }, 1500); // Increased to 1.5 seconds to give time for animation
+        }, 1500);
       }
       
       return room;

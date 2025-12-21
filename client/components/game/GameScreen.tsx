@@ -15,7 +15,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SUBMIT_ANSWER_MUTATION, LEAVE_ROOM_MUTATION } from "@/lib/graphql";
 import { useAuthStore } from "@/store/useAuthStore";
 
-// --- Types ---
 interface Player {
   userId: string;
   username: string;
@@ -53,9 +52,6 @@ interface GameScreenProps {
   room: Room;
 }
 
-// ----------------------------------------------------------------------
-// SUB-COMPONENT: The Active Question Area
-// ----------------------------------------------------------------------
 function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player }) {
   const [timeLeft, setTimeLeft] = useState(20);
   const [submitAnswer, { loading: submitting }] = useMutation(SUBMIT_ANSWER_MUTATION);
@@ -72,7 +68,6 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
   
   const allPlayersAnswered = room.players.every(p => p.hasAnsweredCurrent);
 
-  // Reset when question changes
   useEffect(() => {
     if (room.currentQuestionIndex !== previousQuestionIndex.current) {
       hasSubmittedRef.current = false;
@@ -83,7 +78,6 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
     }
   }, [room.currentQuestionIndex]);
 
-  // 1. Timer Logic
   useEffect(() => {
     if (!room.roundStartTime) return;
 
@@ -107,12 +101,10 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
     return () => clearInterval(interval);
   }, [room.roundStartTime]);
 
-  // 2. Show answer distribution when all players have answered
   useEffect(() => {
     if (allPlayersAnswered && !showAnswerDistribution) {
       console.log('All players answered! Showing distribution...');
       
-      // Calculate distribution from actual player answers
       const distribution = [0, 0, 0, 0];
       room.players.forEach(player => {
         console.log(`Player ${player.username} answered: ${player.currentAnswer}`);
@@ -125,7 +117,6 @@ function ActiveQuestionView({ room, myPlayer }: { room: Room; myPlayer?: Player 
       setAnswerDistribution(distribution);
       setShowAnswerDistribution(true);
       
-      // Hide after 1.5 seconds (matching backend delay)
       setTimeout(() => {
         console.log('Hiding distribution overlay');
         setShowAnswerDistribution(false);

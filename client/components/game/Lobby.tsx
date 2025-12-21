@@ -13,7 +13,6 @@ import { START_GAME_MUTATION, TOGGLE_READY_MUTATION, LEAVE_ROOM_MUTATION } from 
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/lib/utils";
 
-// Define types
 interface Player {
   userId: string;
   username: string;
@@ -61,18 +60,14 @@ export function Lobby({ room }: LobbyProps) {
   const router = useRouter();
   const isHost = user?.id === room.host?.id;
   
-  // Check if the current user is in the players list
   const myPlayer = room.players.find((p) => p.userId === user?.id);
 
-  // ✅ Check if all players are ready
   const allPlayersReady = room.players.every((p) => p.isReady);
   const readyCount = room.players.filter((p) => p.isReady).length;
 
-  // ✅ Validate game start conditions
   const canStartGame = () => {
     const playerCount = room.players.length;
     
-    // Check minimum player count
     if (room.config.isHostPlaying && playerCount < 2) {
       return { valid: false, reason: "Need at least 2 players to start (including you)" };
     }
@@ -81,7 +76,6 @@ export function Lobby({ room }: LobbyProps) {
       return { valid: false, reason: "Need at least 2 players to start in Projector Mode" };
     }
 
-    // ✅ Check if all players are ready
     if (!allPlayersReady) {
       return { valid: false, reason: `Waiting for all players to be ready (${readyCount}/${playerCount})` };
     }

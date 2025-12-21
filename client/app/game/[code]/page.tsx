@@ -13,7 +13,6 @@ import { GET_ROOM_QUERY, ROOM_UPDATED_SUBSCRIPTION, JOIN_ROOM_MUTATION } from "@
 import { useAuthStore } from "@/store/useAuthStore";
 import { GameScreen } from "@/components/game/GameScreen";
 
-// Define types for the queries and subscriptions
 interface Player {
   userId: string;
   username: string;
@@ -73,67 +72,52 @@ export default function GameRoomPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   
-  // Safely extract code from params
   const code = typeof params.code === 'string' ? params.code : Array.isArray(params.code) ? params.code[0] : '';
 
-  // 1. Initial Query
   const { data, loading, error, refetch } = useQuery<GetRoomData>(GET_ROOM_QUERY, {
     variables: { code },
     fetchPolicy: "network-only",
-    skip: !code, // Skip if no code
+    skip: !code,
   });
 
-  // 2. Realtime Subscription
   const { data: subData } = useSubscription<RoomUpdatedData>(ROOM_UPDATED_SUBSCRIPTION, {
     variables: { code },
-    skip: !code, // Skip if no code
+    skip: !code,
   });
 
-  // 3. Join Mutation
   const [joinRoom, { loading: joining }] = useMutation<JoinRoomData>(JOIN_ROOM_MUTATION, {
     onCompleted: (joinData) => {
       toast("Joined!", { description: "You have entered the lobby" });
-      // Refetch to get the latest room data
       refetch();
     },
     onError: (err) => toast.error("Join Failed", { description: err.message }),
   });
 
-  // Get the current room (prefer subscription data over initial query)
   const room = subData?.roomUpdated || data?.getRoom;
 
-  // Check if user is the host
   const isHost = useMemo(() => {
     if (!room || !user) return false;
     return room.host?.id === user.id;
   }, [room, user]);
 
-  // Check if user is already in the player list
   const isUserInRoom = useMemo(() => {
     if (!room || !user) return false;
     return room.players.some((p) => p.userId === user.id);
   }, [room, user]);
 
-  // Determine if we should show the join screen
-  // Show join screen only if: user is NOT the host AND user is NOT in the players list
   const shouldShowJoinScreen = !isHost && !isUserInRoom;
 
-  // ✅ Handle when user is removed from the room (only if they were previously in it)
   useEffect(() => {
     if (room && user) {
       const isUserStillInRoom = room.players.some((p) => p.userId === user.id);
       const isHostCheck = room.host?.id === user.id;
       
-      // Only redirect if:
-      // 1. User is NOT in the room AND
-      // 2. User is NOT the host (in projector mode) AND
-      // 3. We've already determined they should be in the room (past the join screen)
       if (!isUserStillInRoom && !isHostCheck && !shouldShowJoinScreen) {
         toast.info("You have left the room");
         router.push("/");
       }
     }
-  }, [room?.players, user, router, shouldShowJoinScreen]); // Add shouldShowJoinScreen to deps
+  }, [room?.players, user, router, shouldShowJoinScreen]);
 
   if (!code) {
     return (
@@ -162,7 +146,6 @@ export default function GameRoomPage() {
     );
   }
 
-  // If user should see join screen (not host, not in players)
   if (shouldShowJoinScreen) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-6 bg-slate-50">

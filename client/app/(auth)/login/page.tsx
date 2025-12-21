@@ -17,13 +17,11 @@ import { toast } from "sonner";
 import { LOGIN_MUTATION } from "@/lib/graphql";
 import { useAuthStore } from "@/store/useAuthStore";
 
-// 1. Define Validation Schema
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
-// Define types for the mutation response
 interface LoginData {
   login: {
     token: string;
@@ -46,7 +44,6 @@ export default function LoginPage() {
   const router = useRouter();
   const loginUser = useAuthStore((state) => state.login);
 
-  // 2. Setup Mutation
   const [loginMutation, { loading }] = useMutation<LoginData>(LOGIN_MUTATION, {
     onCompleted: (data) => {
       loginUser(data.login.token, data.login.user);
@@ -58,7 +55,6 @@ export default function LoginPage() {
     },
   });
 
-  // 3. Setup Form
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { email: "", password: "" },

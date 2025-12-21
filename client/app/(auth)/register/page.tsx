@@ -24,14 +24,12 @@ import { toast } from "sonner";
 import { REGISTER_MUTATION } from "@/lib/graphql";
 import { useAuthStore } from "@/store/useAuthStore";
 
-// 1️⃣ Validation schema
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-// 2️⃣ Mutation response typing (FIXES `unknown`)
 interface RegisterData {
   register: {
     token: string;
@@ -54,7 +52,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const loginUser = useAuthStore((state) => state.login);
 
-  // 3️⃣ Typed mutation (same as Login)
   const [registerMutation, { loading }] = useMutation<RegisterData>(
     REGISTER_MUTATION,
     {
@@ -73,7 +70,6 @@ export default function RegisterPage() {
     }
   );
 
-  // 4️⃣ Form setup
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
