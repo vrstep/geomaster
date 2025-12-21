@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  db:
+    image: mongo:latest
+    container_name: geomaster-db
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mern_db:/data/db
+    networks:
+      - geomaster-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Server
+  backend-dev:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+      target: dev
+    container_name: geomaster-server
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - MONGO_URI=mongodb://db:27017/geomaster
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-here}
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - geomaster-network
+
+  # Frontend Client
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+      target: dev
+    container_name: geomaster-client
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_SERVER_URL=http://localhost:4000
+      - PORT=3000
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend-dev
+    networks:
+      - geomaster-network
+
+networks:
+  geomaster-network:
+    driver: bridge
+
+volumes:
+  mern_db:
